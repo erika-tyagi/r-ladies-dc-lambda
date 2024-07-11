@@ -1,0 +1,238 @@
+---
+title: "Bringing R to Serverless Cloud Computing"
+subtitle: "R-Ladies DC Meetup" 
+author: "Erika Tyagi"
+date: "2024-07-11" 
+format: 
+    revealjs: 
+        menu: false
+        embed-resources: true
+        theme: urbn.scss
+        include-after-body: format-title-page.html
+        width: 1120
+        height: 700
+title-slide-attributes: 
+    data-background-image: images/r-logo.png,images/lambda-logo.png
+    data-background-size: 15%,12%
+    data-background-position: 9% 75%,90% 75%
+
+---
+
+## Who am I? 
+
+::: columns
+::: {.column width="68%"}
+::: {style="font-size: 92%"}
+- Lead Data Engineer at [the Urban Institute](https://urban.org/). 
+- Former data scientist, researcher, etc. 
+- Passionate about developing **user-friendly** systems that make analyzing data more **accessible**, **reproducible**, and **fun**. 
+:::
+:::
+
+::: {.column width="45%"}
+![](images/tyagi-headshot.jpg){.absolute top=50 left=760 height="380"}
+:::
+:::
+
+## What will I talk about today? 
+1. What is AWS Lambda and how is it useful? 
+2. How can you run R from Lambda? 
+3. What are uses cases for integrating R and Lambda? 
+
+## Motivation 
+::: columns
+::: {.column width="60%"}
+- **Bridge the gap** between two technologies that have (separately) led to innovation at the Urban Institute: R and AWS Lambda.
+- Make serverless cloud computing **more accessible** to researchers and data scientists. 
+- Address "R can't do..." pushback. 
+:::
+
+::: {.column width="40%"}
+![](images/r-logo.png){.absolute top=50 left=720 height="250"}
+![](images/lambda-logo.png){.absolute top=350 left=760 height="250"}
+:::
+:::
+
+## What is AWS Lambda? (without jargon)
+:::: {.columns}
+::: {.column width="50%"}
+A service from Amazon Web Services (AWS) that lets you run code in the cloud without having to manage servers.
+:::
+
+::: {.column width="50%"}
+![](images/aws-logo.png){}
+:::
+:::
+
+::: aside
+Other cloud providers offer similar services (e.g. Azure Functions, GCP Functions).
+:::
+
+## What is AWS Lambda? 
+You can think of it like a kitchen in a restaurant. 
+
+::: {style="font-size: 90%"}
+- **You are the chef** who only cares about preparing the food (or in this case, writing the code). You don't have to worry about maintaining the kitchen, cleaning it, or even turning on the oven. 
+- **Lambda is the kitchen staff** that takes care of all those tasks. 
+- You just provide the recipe (your code), and Lambda executes it whenever a customer orders the dish (or when a specific event triggers your code). 
+:::
+
+::: aside
+Analogy credit to GitHub Copilot. 
+:::
+
+## What are common Lambda use cases? 
+::: {style="font-size: 95%"}
+- **Data processing**: ETL, data validation, and data transformation
+- **Web applications**: APIs and microservices 
+- **Automation**: Scheduled tasks, monitoring, and alerting
+- And much more! 
+:::
+
+## How does Urban use Lambda?
+::: {style="font-size: 90%"}
+- [**Education Data Portal**](https://educationdata.urban.org/): Compute summary statistics against hundreds of millions of records of education data on the fly. 
+- [**Spatial Equity Data Tool**](https://apps.urban.org/features/equity-data-tool/index.html): Evaluate demographic and spatial disparities in geographic datasets.  
+- **Many other ways**: [Automate data quality checks](https://urban-institute.medium.com/automating-data-quality-checks-with-great-expectations-f6b7a8e51201), [run microsimulation models](https://www.urban.org/research/publication/scaling-microsimulation-modeling-cloud-guide), [expand access to confidential data](https://www.urban.org/research/publication/privacy-preserving-validation-server-prototype), [provide on-demand access to cloud computing resources](https://urban-institute.medium.com/how-we-make-accessing-cloud-computing-power-simple-ad8f3bfc086f), and more. 
+:::
+
+## What is AWS Lambda? (with jargon)
+Focus on writing code, not managing infrastructure. 
+
+::: {style="font-size: 95%"}
+- A **serverless compute service** from AWS that lets you run code in the cloud without having to manage servers.
+- You define a **Lambda function** to run code in a particular execution environment when triggered by an **invocation event**. 
+- You only **pay for what you use** (based on the number of requests, allocated memory, and execution time). 
+:::
+
+## Why is Lambda useful? 
+::: {style="font-size: 95%"}
+- **Cost**: It's highly cost-effective for many use cases.^[The AWS Lambda free tier includes 1M requests and 400K GB-seconds of compute time per month. After that, pricing is based on the number of requests ($0.20 per 1M), duration, and allocated memory ($0.0000166667 for every GB-second). See pricing information [here](https://aws.amazon.com/lambda/pricing/).] 
+- **Ease of setup**: It's generally easier to set up and maintain than applications hosted on traditional servers. 
+- **Scalability**: It quickly and automatically scales to meet demand. 
+- **Flexibility**: It supports a variety of event sources and custom configurations, and is the heart of an active developer community. 
+:::
+
+## What are key limitations to Lambda? 
+- Each function has a maximum runtime of 15 minutes. 
+- It has strict memory, storage, and concurrency constraints.^[See [here](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html) for detailed information on Lambda quotas.]
+- It only natively support Java, Go, PowerShell, Node.js, C#, Python, and Ruby.
+
+## So how can I run R from Lambda? 
+Define a custom runtime (through a container image) with R.
+
+- Option 1: Use the [rpy2](https://rpy2.github.io/) Python package. 
+- Option 2: Use the [lambdr](https://lambdr.mdneuzerling.com/) R package. 
+
+![](images/docker-logo.png){.absolute top=220 left=50 height="350"}
+![](images/rpy2.png){.absolute top=150 left=750 height="220"}
+![](images/lambdr.png){.absolute top=400 left=725 height="280"}
+
+## Both options
+Define a custom runtime (through a container image) with R. 
+
+1. Build a custom container using a Dockerfile. 
+2. Upload your container to AWS. 
+3. Write your code. 
+4. Deploy your Lambda function using the container image.  
+
+## Option 1: rpy2 (1/2) 
+::: {style="font-size: 95%"}
+- Create a Dockerfile from an AWS Python Lambda image. 
+- Install R, system dependencies, any additional R packages, and the [rpy2 Python package](https://rpy2.github.io/). 
+:::
+
+```code 
+FROM public.ecr.aws/lambda/python:3.10
+
+ENV R_VERSION=4.3.1
+
+RUN yum -y install wget git tar openssl-devel libxml2-devel \
+  && yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+  && wget https://cdn.rstudio.com/r/centos-7/pkgs/R-${R_VERSION}-1-1.x86_64.rpm \
+  && yum -y install R-${R_VERSION}-1-1.x86_64.rpm \
+  && rm R-${R_VERSION}-1-1.x86_64.rpm \
+  && yum -y clean all \
+  && rm -rf /var/cache/yum
+
+ENV PATH="${PATH}:/opt/R/${R_VERSION}/bin/" 
+ENV LD_LIBRARY_PATH="/opt/R/${R_VERSION}/lib/R/lib/" 
+
+RUN R -e "install.packages(c('aws.s3', 'dplyr'), \
+  repos = c(CRAN = 'https://packagemanager.posit.co/cran/__linux__/centos7/latest'))"
+
+COPY requirements.txt  .
+RUN  pip3 install -r requirements.txt --target "${LAMBDA_TASK_ROOT}"
+
+COPY . ${LAMBDA_TASK_ROOT} 
+```
+
+## Option 1: rpy2 (2/2) 
+- Write your R code. 
+```code 
+parity <- function(number) {
+    return (if (as.integer(number) %% 2 == 0) "even" else "odd")
+}
+```
+- From your Python code, use rpy2 to source and call your R code from the Lambda handler. 
+```code
+from rpy2.robjects import r
+
+def lambda_handler(event, context):
+   number = event['number']
+   r('''source("utils.R")''')
+   return r['parity'](number)[0]
+```
+
+## Option 2: lambdr (1/2)
+::: {style="font-size: 95%"}
+- Create a Dockerfile from the AWS base Lambda image. 
+- Install R, system dependencies, the [lambdr R package](https://lambdr.mdneuzerling.com/), any additional R packages, and a bootstrap file. 
+:::
+
+```code 
+FROM public.ecr.aws/lambda/provided
+
+ENV R_VERSION=4.0.3
+ENV R_SCRIPT=app.R 
+
+RUN yum -y install wget git tar openssl-devel libxml2-devel \
+  && yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+  && wget https://cdn.rstudio.com/r/centos-7/pkgs/R-${R_VERSION}-1-1.x86_64.rpm \
+  && yum -y install R-${R_VERSION}-1-1.x86_64.rpm \
+  && rm R-${R_VERSION}-1-1.x86_64.rpm \
+  && yum -y clean all \
+  && rm -rf /var/cache/yum
+
+ENV PATH="${PATH}:/opt/R/${R_VERSION}/bin/"
+
+RUN R -e "install.packages(c('aws.s3', 'dplyr', 'lambdr'), repos = 'https://cloud.r-project.org/')"
+
+RUN mkdir /lambda
+COPY ${R_SCRIPT} /lambda
+RUN chmod 755 -R /lambda
+
+RUN printf '#!/bin/sh\ncd /lambda\nRscript ${R_SCRIPT}' > /var/runtime/bootstrap \
+  && chmod +x /var/runtime/bootstrap
+```
+
+## Option 2: lambdr (2/2)
+- Write your R code and define your handler. 
+- From your R code, start the Lambda runtime.  
+
+```code 
+parity <- function(number) {
+    return (if (as.integer(number) %% 2 == 0) "even" else "odd")
+}
+
+lambdr::start_lambda()
+```
+
+## How has Urban used R with Lambda? 
+- **Automate data collection**: Regularly check websites to download new data, perform checks, generate summary tables, and email researchers with links to the latest files. 
+- **Safely expand access to confidential data**: Implement computationally intensive differential privacy algorithms at scale through an automated validation server prototype.  
+
+## Thank you! 
+- **Reach out**: erika.tyagi@gmail.com
+- **Read more**: [Data@Urban blog post](https://urban-institute.medium.com/how-were-bringing-r-to-serverless-cloud-computing-f0e74e3eb47c)
+- **Dive into the demo**: [GitHub repository](https://github.com/UI-Research/lambda-r-demo)
